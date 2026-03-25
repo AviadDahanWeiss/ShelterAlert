@@ -18,9 +18,23 @@ function buildAlertIndex(alertAreas: string[]): Fuse<string> {
   });
 }
 
+/**
+ * Check if a (Hebrew) area name is in the alert zones.
+ * Three-stage check:
+ *   1. Exact match  (e.g. "עכו" === "עכו")
+ *   2. Prefix match (e.g. "עכו" in "עכו - מרכז העיר") — handles sub-areas
+ *   3. Fuzzy match  (threshold 0.35) — handles spelling variants
+ */
+function isAreaInAlert(hebrewArea: string, alertAreas: string[], alertFuse: Fuse<string>): boolean {
+  if (alertAreas.includes(hebrewArea)) return true;
+  if (alertAreas.some((a) => a.startsWith(hebrewArea) || hebrewArea.startsWith(a))) return true;
+  return alertFuse.search(hebrewArea).length > 0;
+}
+
 function resolveStatus(
   attendee: CalendarAttendee,
   mappings: AttendeeMapping[],
+  alertAreas: string[],
   alertFuse: Fuse<string>,
   severity: AlertSeverity
 ): AttendeeWithStatus {
@@ -36,8 +50,7 @@ function resolveStatus(
   }
 
   const hebrewArea = toHebrewAreaName(mapping.area);
-  const results = alertFuse.search(hebrewArea);
-  const isInAlertZone = results.length > 0;
+  const isInAlertZone = isAreaInAlert(hebrewArea, alertAreas, alertFuse);
 
   let status: AttendeeWithStatus['status'] = 'Safe';
   if (isInAlertZone) {
@@ -73,7 +86,7 @@ export function enrichEventWithSafety(
   const alertFuse = buildAlertIndex(alertAreas);
 
   const attendees = (event.attendees ?? [])
-    .map((a) => resolveStatus(a, mappings, alertFuse, severity));
+    .map((a) => resolveStatus(a, mappings, alertAreas, alertFuse, severity));
 
   return { event, attendees, summary: buildSummary(attendees) };
 }

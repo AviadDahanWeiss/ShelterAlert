@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useAlerts } from '@/hooks/useAlerts';
@@ -16,7 +16,7 @@ import MeetingCard from '@/components/MeetingCard';
 import AttendeeManager from '@/components/AttendeeManager';
 import ShelterAlertToast from '@/components/ShelterAlertToast';
 import type { ShelterAlert } from '@/hooks/useDesktopNotifications';
-import type { AttendeeMapping, ExtendedSession } from '@/types';
+import type { AttendeeMapping, MeetingStatus } from '@/types';
 
 function Spinner({ className = 'h-5 w-5 text-gray-400' }: { className?: string }) {
   return (
@@ -43,17 +43,18 @@ function RefreshBtn({
       <button
         onClick={onClick}
         disabled={loading}
-        className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 shadow-sm transition-colors"
+        className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        title={label}
       >
         {loading ? <Spinner className="h-4 w-4 text-gray-400" /> : (
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         )}
-        {loading ? 'Refreshing…' : label}
+        <span className="hidden sm:inline">{loading ? 'Refreshing…' : label}</span>
       </button>
       {lastFetched && (
-        <span className="text-xs text-gray-400 pr-0.5 tabular-nums">
+        <span className="text-xs text-gray-400 pr-0.5 tabular-nums hidden sm:block">
           {lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
         </span>
       )}
@@ -65,21 +66,18 @@ function RefreshBtn({
 
 function DemoBanner() {
   return (
-    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
-      <div className="flex items-start gap-3">
-        <span className="text-xl shrink-0 mt-0.5">👋</span>
-        <div>
-          <p className="font-semibold text-sm">You&apos;re viewing a demo</p>
-          <p className="text-blue-100 text-xs mt-0.5 leading-relaxed">
-            These are sample meetings with fictional attendees. Connect your Google Calendar to see your real meetings and get live safety alerts.
-          </p>
-        </div>
+    <div className="bg-blue-600 text-white px-4 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shrink-0">
+      <div>
+        <p className="font-semibold text-sm">Demo mode</p>
+        <p className="text-blue-200 text-xs leading-relaxed">
+          Sample meetings with fictional attendees. Connect your calendar to see real data.
+        </p>
       </div>
       <button
         onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-        className="shrink-0 inline-flex items-center gap-2 bg-white text-blue-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors shadow-sm w-full sm:w-auto justify-center"
+        className="shrink-0 inline-flex items-center gap-2 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-50 transition-colors w-full sm:w-auto justify-center"
       >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
           <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -109,34 +107,42 @@ function AlertStatusPanel({
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [copiedArea, setCopiedArea] = useState<string | null>(null);
   const hasAlerts = alertAreas.length > 0;
+
+  const handleCopy = (display: string) => {
+    navigator.clipboard?.writeText(display);
+    setCopiedArea(display);
+    setTimeout(() => setCopiedArea(null), 1500);
+  };
 
   return (
     <div
-      className={`rounded-2xl border text-sm overflow-hidden ${
+      className={`border text-sm overflow-hidden ${
         hasAlerts
-          ? 'border-red-200 bg-red-50'
+          ? 'border-red-300 bg-red-50'
           : alertError
           ? 'border-amber-200 bg-amber-50'
           : 'border-gray-200 bg-white'
       }`}
+
     >
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-2.5">
         <div className="flex items-center gap-2.5">
           {alertLoading ? (
-            <Spinner className="h-4 w-4 text-gray-400" />
+            <Spinner className="h-3.5 w-3.5 text-gray-400" />
           ) : (
             <span
-              className={`h-2.5 w-2.5 rounded-full ${
+              className={`h-2 w-2 rounded-full ${
                 hasAlerts ? 'bg-red-500 animate-pulse' : alertError ? 'bg-amber-400' : 'bg-emerald-400'
               }`}
             />
           )}
-          <span className={`font-medium ${hasAlerts ? 'text-red-800' : alertError ? 'text-amber-800' : 'text-gray-700'}`}>
+          <span className={`font-medium text-sm ${hasAlerts ? 'text-red-800' : alertError ? 'text-amber-800' : 'text-gray-700'}`}>
             {alertLoading
               ? 'Checking Pikud HaOref…'
               : hasAlerts
-              ? `🚨 Active alert — ${alertAreas.length} area${alertAreas.length !== 1 ? 's' : ''}`
+              ? `Active alert — ${alertAreas.length} area${alertAreas.length !== 1 ? 's' : ''}`
               : alertError
               ? 'Alert service issue'
               : lastFetched
@@ -144,7 +150,7 @@ function AlertStatusPanel({
               : 'Not checked yet'}
           </span>
           {hasAlerts && alertTitle && (
-            <span className="text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full border border-red-200 font-medium">
+            <span className="text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded border border-red-200 font-medium">
               {alertTitle}
             </span>
           )}
@@ -161,13 +167,13 @@ function AlertStatusPanel({
               onClick={() => setExpanded((v) => !v)}
               className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-100 transition-colors"
             >
-              {expanded ? 'Hide areas ▲' : 'Show areas ▼'}
+              {expanded ? 'Hide ▲' : `${alertAreas.length} areas ▼`}
             </button>
           )}
           <button
             onClick={onRefresh}
             disabled={alertLoading}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40"
+            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-40"
             title="Refresh alerts"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -177,34 +183,39 @@ function AlertStatusPanel({
         </div>
       </div>
 
-      {/* Expanded area list */}
+      {/* Expanded area list — click anywhere to collapse */}
       {expanded && hasAlerts && (
-        <div className="border-t border-red-200 px-4 py-3">
-          <p className="text-xs text-red-600 font-semibold mb-2 uppercase tracking-wide">
-            ⚠️ Areas under alert — type either the English or Hebrew name in the attendee&apos;s Area field:
-          </p>
+        <div
+          className="border-t border-red-200 px-4 py-2.5 cursor-pointer"
+          onClick={() => setExpanded(false)}
+        >
           <div className="flex flex-wrap gap-1.5">
             {alertAreas.map((area) => {
               const english = toEnglishAreaName(area);
               const display = english !== area ? english : area;
+              const copied = copiedArea === display;
               return (
                 <button
                   key={area}
-                  onClick={() => navigator.clipboard?.writeText(display)}
-                  title={`Click to copy "${display}"`}
-                  className="inline-flex flex-col items-start px-2.5 py-1 rounded-lg bg-red-100 border border-red-200 text-red-800 text-sm font-medium hover:bg-red-200 transition-colors cursor-copy"
+                  onClick={(e) => { e.stopPropagation(); handleCopy(display); }}
+                  title={copied ? 'Copied!' : `Copy "${display}"`}
+                  className={`inline-flex flex-col items-start px-2 py-1 border text-xs font-medium transition-colors ${
+                    copied
+                      ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                      : 'bg-red-100 border-red-200 text-red-800 hover:bg-red-200 cursor-copy'
+                  }`}
                 >
-                  <span>{display}</span>
+                  <span className="flex items-center gap-1">
+                    {copied && <span className="text-emerald-600">✓</span>}
+                    {display}
+                  </span>
                   {english !== area && (
-                    <span className="text-xs text-red-500 font-normal" dir="rtl">{area}</span>
+                    <span className="text-[10px] text-red-500 font-normal" dir="rtl">{area}</span>
                   )}
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-red-500 mt-2">
-            Click any area to copy the English name, then paste into the attendee&apos;s Area field.
-          </p>
         </div>
       )}
 
@@ -238,6 +249,7 @@ function MeetingsView({
   mappings,
   onAddOrUpdateMapping,
   isDemo,
+  meetingStatuses,
 }: {
   enrichedEvents: EnrichedEvent[];
   eventsLoading: boolean;
@@ -254,7 +266,18 @@ function MeetingsView({
   mappings: AttendeeMapping[];
   onAddOrUpdateMapping: (m: AttendeeMapping) => void;
   isDemo: boolean;
+  meetingStatuses: MeetingStatus[];
 }) {
+  const [justChecked, setJustChecked] = useState(false);
+  const justCheckedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRefreshAlerts = useCallback(() => {
+    onRefreshAlerts();
+    if (justCheckedTimer.current) clearTimeout(justCheckedTimer.current);
+    setJustChecked(true);
+    justCheckedTimer.current = setTimeout(() => setJustChecked(false), 3000);
+  }, [onRefreshAlerts]);
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long', month: 'long', day: 'numeric',
   });
@@ -265,19 +288,19 @@ function MeetingsView({
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between gap-4 shrink-0">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Today&apos;s Meetings</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-white flex items-center justify-between gap-2 sm:gap-4 shrink-0">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Today&apos;s Meetings</h1>
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 truncate">
             {today}
             {tzAbbr && (
-              <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">
+              <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
                 {tzAbbr}
               </span>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isDemo && (
             <RefreshBtn
               label="Refresh Calendar"
@@ -287,20 +310,32 @@ function MeetingsView({
             />
           )}
           <button
-            onClick={onRefreshAlerts}
+            onClick={handleRefreshAlerts}
             disabled={alertLoading}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors disabled:opacity-50 ${
+            className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-sm font-medium border transition-colors disabled:opacity-50 ${
               alertAreas.length > 0
-                ? 'bg-red-600 hover:bg-red-700 text-white border border-red-600'
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+                ? 'bg-red-600 hover:bg-red-700 text-white border-red-600'
+                : justChecked
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'
             }`}
           >
             {alertLoading ? (
-              <Spinner className="h-4 w-4 text-current" />
+              <Spinner className="h-3.5 w-3.5 text-current" />
+            ) : alertAreas.length > 0 ? (
+              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+            ) : justChecked ? (
+              <span className="text-emerald-600 font-bold">✓</span>
             ) : (
-              <span className={`h-2 w-2 rounded-full ${alertAreas.length > 0 ? 'bg-white animate-pulse' : 'bg-emerald-400'}`} />
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
             )}
-            {alertLoading ? 'Checking…' : alertAreas.length > 0 ? `🚨 ${alertAreas.length} Alert${alertAreas.length !== 1 ? 's' : ''}` : 'Check Alerts'}
+            {alertLoading
+              ? 'Checking…'
+              : alertAreas.length > 0
+              ? `${alertAreas.length} Alert${alertAreas.length !== 1 ? 's' : ''}`
+              : justChecked
+              ? 'No alerts'
+              : 'Check Alerts'}
           </button>
         </div>
       </div>
@@ -315,17 +350,17 @@ function MeetingsView({
             alertLoading={alertLoading}
             alertError={alertError}
             lastFetched={alertLastFetched}
-            onRefresh={onRefreshAlerts}
+            onRefresh={handleRefreshAlerts}
           />
 
           {inShelterTotal > 0 && (
-            <div className="rounded-2xl bg-red-600 text-white px-5 py-4 flex items-start gap-3 shadow-lg">
-              <span className="text-2xl shrink-0">🚨</span>
+            <div className="border border-red-300 bg-red-600 text-white px-4 py-3 flex items-center gap-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse shrink-0" />
               <div>
-                <p className="font-bold text-base">
+                <p className="font-bold text-sm">
                   {inShelterTotal} attendee{inShelterTotal !== 1 ? 's' : ''} may be in a shelter right now
                 </p>
-                <p className="text-sm text-red-100 mt-0.5">
+                <p className="text-xs text-red-100 mt-0.5">
                   Expand the cards below to see who is affected.
                 </p>
               </div>
@@ -353,17 +388,39 @@ function MeetingsView({
               </div>
             ) : (
               <div className="space-y-3">
-                {enrichedEvents.map((m) => (
+                {enrichedEvents.map((m, i) => (
                   <MeetingCard
                     key={m.event.id}
                     meeting={m}
                     mappings={mappings}
                     onAddOrUpdateMapping={onAddOrUpdateMapping}
+                    status={meetingStatuses[i] ?? 'future'}
                   />
                 ))}
               </div>
             )
           )}
+
+          {/* End-of-list footer + legal disclaimer */}
+          <div className="pt-6 pb-2">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400 shrink-0 font-medium">End of schedule</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <div className="mt-3 border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-800 leading-relaxed">
+              <p className="font-semibold mb-0.5">⚠️ Not an official emergency service</p>
+              <p>
+                ShelterAlert is an independent tool and is <strong>not affiliated with Pikud HaOref</strong> (the Israel Home Front Command).
+                Alert data is sourced from Pikud HaOref&apos;s public API but may be delayed or incomplete.{' '}
+                <strong>Do not rely on this app for life-safety decisions.</strong>{' '}
+                Always follow official guidance from{' '}
+                <a href="https://www.oref.org.il" target="_blank" rel="noopener noreferrer" className="underline">oref.org.il</a>.
+              </p>
+            </div>
+          </div>
+          {/* Spacer so last card clears the mobile bottom nav */}
+          <div className="h-28 sm:h-4" />
         </div>
       </div>
     </div>
@@ -373,9 +430,8 @@ function MeetingsView({
 // ── Root dashboard ─────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const isDemo = status === 'unauthenticated';
-  const accessToken = (session as ExtendedSession | null)?.accessToken ?? '';
   const [activeView, setActiveView] = useState<View>('meetings');
   const [toastAlerts, setToastAlerts] = useState<ShelterAlert[]>([]);
 
@@ -385,13 +441,29 @@ export default function Dashboard() {
   const { events: realEvents, loading: eventsLoading, error: eventsError, lastFetched: eventsLastFetched, refresh: refreshCalendar } = useCalendarEvents();
   const { alertAreas, alertSeverity, alertTitle, loading: alertLoading, error: alertError, lastFetched: alertLastFetched, refresh: refreshAlerts } = useAlerts();
   const { mappings, addOrUpdateMapping, mergeMappings, replaceMappings, editMapping, deleteMapping, clearAll } = useLocationMapping();
-  const { checkAndNotify } = useDesktopNotifications();
+  const { checkAndNotify, forceNotify } = useDesktopNotifications();
+  const pendingForceNotify = useRef(false);
 
-  // In demo mode use demo events + demo mappings; in real mode use real data
+  // In demo mode use demo events; in real mode use real events
   const events = isDemo ? demoEvents : realEvents;
-  const effectiveMappings = isDemo ? DEMO_MAPPINGS : mappings;
+
+  // In demo mode: start with DEMO_MAPPINGS but let any localStorage edits override them.
+  // This lets unauthenticated users still customise attendee locations.
+  const effectiveMappings = useMemo(() => {
+    if (!isDemo) return mappings;
+    const userByEmail = new Map(mappings.map((m) => [m.email, m]));
+    const demoEmails = new Set(DEMO_MAPPINGS.map((m) => m.email));
+    const merged = DEMO_MAPPINGS.map((dm) => userByEmail.get(dm.email) ?? dm);
+    const extras = mappings.filter((m) => !demoEmails.has(m.email));
+    return [...merged, ...extras];
+  }, [isDemo, mappings]);
 
   const handleScheduledTrigger = useCallback(() => { refreshAlerts(); }, [refreshAlerts]);
+
+  const handleManualRefreshAlerts = useCallback(() => {
+    pendingForceNotify.current = true;
+    refreshAlerts();
+  }, [refreshAlerts]);
   useMeetingScheduler({ events, onTrigger: handleScheduledTrigger });
 
   const enrichedEvents = useMemo(
@@ -400,7 +472,26 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    if (isDemo) return; // no desktop notifications in demo
+    // Run on every new alert fetch OR whenever enrichedEvents changes.
+    // alertLastFetched ensures we fire even when alertAreas didn't change
+    // (i.e. same sirens still active after a manual refresh).
+    if (pendingForceNotify.current) {
+      pendingForceNotify.current = false;
+      const shelterAlerts = enrichedEvents.flatMap((m) => {
+        const shelterAttendees = m.attendees
+          .filter((a) => a.status === 'In Shelter')
+          .map((a) => ({ name: a.name, email: a.email, area: a.area }));
+        if (shelterAttendees.length === 0) return [];
+        return [{
+          meetingTitle: m.event.summary ?? 'Meeting',
+          meetingStart: m.event.start.dateTime,
+          totalAttendees: m.attendees.length,
+          shelterAttendees,
+        }];
+      });
+      if (shelterAlerts.length > 0) forceNotify(shelterAlerts);
+    }
+
     const newAlerts = checkAndNotify(enrichedEvents);
     if (newAlerts.length > 0) {
       setToastAlerts((prev) => {
@@ -409,9 +500,26 @@ export default function Dashboard() {
         return truly_new.length > 0 ? [...prev, ...truly_new] : prev;
       });
     }
-  }, [enrichedEvents, checkAndNotify, isDemo]);
+  // alertLastFetched ensures the effect re-runs after every manual refresh
+  // even when alertAreas hasn't changed (same active sirens).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertLastFetched, enrichedEvents, checkAndNotify, forceNotify]);
 
   const inShelterTotal = enrichedEvents.reduce((sum, m) => sum + m.summary.inShelterCount, 0);
+
+  // Compute timing status for each meeting (sorted by startTime)
+  const meetingStatuses = useMemo((): MeetingStatus[] => {
+    const now = Date.now();
+    let nextAssigned = false;
+    return enrichedEvents.map((m) => {
+      const start = new Date(m.event.start.dateTime).getTime();
+      const end = new Date(m.event.end.dateTime).getTime();
+      if (end < now) return 'past';
+      if (start <= now) return 'current';
+      if (!nextAssigned) { nextAssigned = true; return 'next'; }
+      return 'future';
+    });
+  }, [enrichedEvents]);
 
   return (
     <AuthGuard>
@@ -427,7 +535,7 @@ export default function Dashboard() {
           }
         />
 
-        <main className="flex-1 overflow-hidden flex flex-col pt-14 sm:pt-0 pb-16 sm:pb-0">
+        <main className="flex-1 overflow-hidden flex flex-col pt-14 sm:pt-0 pb-20 sm:pb-0">
           {/* Demo banner — sticky at top of content area */}
           {isDemo && <DemoBanner />}
 
@@ -443,24 +551,23 @@ export default function Dashboard() {
               alertLoading={alertLoading}
               alertError={alertError}
               alertLastFetched={alertLastFetched}
-              onRefreshAlerts={refreshAlerts}
+              onRefreshAlerts={handleManualRefreshAlerts}
               inShelterTotal={inShelterTotal}
               mappings={effectiveMappings}
               onAddOrUpdateMapping={addOrUpdateMapping}
               isDemo={isDemo}
+              meetingStatuses={meetingStatuses}
             />
           )}
           {activeView === 'attendees' && (
             <AttendeeManager
-              mappings={isDemo ? DEMO_MAPPINGS : mappings}
-              accessToken={accessToken}
+              mappings={effectiveMappings}
               onAdd={addOrUpdateMapping}
-              onEdit={editMapping}
+              onEdit={(originalEmail, updated) => addOrUpdateMapping(updated)}
               onDelete={deleteMapping}
               onMerge={mergeMappings}
               onReplace={replaceMappings}
               onClear={clearAll}
-              isDemo={isDemo}
             />
           )}
         </main>

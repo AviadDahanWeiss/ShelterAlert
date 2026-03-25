@@ -4,10 +4,10 @@
  *
  * The Pikud HaOref alerts API returns Hebrew area names exclusively.
  * This module lets users type area names in English (or Hebrew) and
- * normalises them to the Hebrew string used in the alerts API before
- * Fuse.js matching is applied.
+ * normalises them to the canonical Hebrew string used in the alerts API.
  */
 
+import Fuse from 'fuse.js';
 import citiesRaw from './cities.json';
 
 interface CityEntry {
@@ -18,17 +18,34 @@ interface CityEntry {
 }
 
 const cities = citiesRaw as CityEntry[];
+const validCities = cities.filter((c) => c.name && c.value !== 'all');
 
 // English (lowercased) → Hebrew name
 const enToHe = new Map<string, string>();
-// Hebrew → Hebrew (identity, for completeness)
+// Hebrew → Hebrew (canonical, for exact match)
 const heToHe = new Map<string, string>();
 
-for (const city of cities) {
-  if (!city.name || city.value === 'all') continue;
+for (const city of validCities) {
   if (city.name_en) enToHe.set(city.name_en.toLowerCase().trim(), city.name);
   heToHe.set(city.name.trim(), city.name);
 }
+
+// Lazy Fuse instance for fuzzy Hebrew matching (handles spelling variants like
+// קרית/קריית, common in Israeli city names).
+let _hebrewFuse: Fuse<CityEntry> | null = null;
+function getHebrewFuse() {
+  if (!_hebrewFuse) {
+    _hebrewFuse = new Fuse(validCities, {
+      keys: ['name'],
+      threshold: 0.3,
+      includeScore: true,
+    });
+  }
+  return _hebrewFuse;
+}
+
+// Hebrew character range
+const HE_RANGE = /[\u05D0-\u05EA]/;
 
 /**
  * Given a user-supplied area string (English or Hebrew),
@@ -42,7 +59,14 @@ export function toHebrewAreaName(area: string): string {
   // Exact English match (case-insensitive)
   const fromEn = enToHe.get(trimmed.toLowerCase());
   if (fromEn) return fromEn;
-  // Return original — Fuse.js will still attempt fuzzy match
+  // Fuzzy Hebrew match — handles common spelling variants (e.g. קרית/קריית)
+  if (HE_RANGE.test(trimmed)) {
+    const results = getHebrewFuse().search(trimmed);
+    if (results[0] && (results[0].score ?? 1) < 0.25) {
+      return results[0].item.name;
+    }
+  }
+  // Return original — Fuse.js in safety.ts will still attempt a match
   return trimmed;
 }
 

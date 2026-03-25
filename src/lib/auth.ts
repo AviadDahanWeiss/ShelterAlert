@@ -8,16 +8,15 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
+          // spreadsheets.readonly is NOT requested here.
+          // It is requested on-demand when the user clicks "Connect Google Sheet".
           scope: [
             'openid',
             'profile',
             'email',
             'https://www.googleapis.com/auth/calendar.readonly',
-            'https://www.googleapis.com/auth/spreadsheets.readonly',
           ].join(' '),
-          // 'online' — no refresh token; user re-authenticates when expired.
           access_type: 'online',
-          // 'consent' — ensures scope screen is shown and access_token is returned every sign-in.
           prompt: 'consent',
         },
       },
@@ -26,18 +25,18 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, account }) {
-      // On the initial sign-in `account` contains the access_token from Google.
+      // Store the Google access token in the JWT (encrypted server-side cookie).
+      // It is NEVER forwarded to the browser session — see the session callback below.
       if (account?.access_token) {
         token.accessToken = account.access_token;
       }
       return token;
     },
 
-    async session({ session, token }) {
-      // Expose accessToken to the client via useSession().
-      // The Next.js backend NEVER receives or processes calendar / sheets data.
-      (session as unknown as { accessToken: string }).accessToken =
-        token.accessToken as string;
+    async session({ session }) {
+      // Return a standard session with NO accessToken field.
+      // Server-side API routes read the token directly via getToken() from next-auth/jwt,
+      // so the access token never needs to reach the browser.
       return session;
     },
   },

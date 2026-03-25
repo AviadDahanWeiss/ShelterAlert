@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { AlertsPayload, AlertSeverity } from '@/types';
 
 interface UseAlertsReturn {
@@ -15,6 +15,13 @@ interface UseAlertsReturn {
 
 const CLIENT_TIMEOUT_MS = 12000;
 
+/**
+ * How long to keep an area "sticky" after the siren stops.
+ * Pikud HaOref sirens can be brief; the threat and shelter-time continue.
+ * We only clear immediately on an explicit "ended" event.
+ */
+const STICKY_MS = 30 * 60 * 1000; // 30 minutes
+
 export function useAlerts(): UseAlertsReturn {
   const [alertAreas, setAlertAreas] = useState<string[]>([]);
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>('none');
@@ -22,6 +29,12 @@ export function useAlerts(): UseAlertsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
+
+  /**
+   * Sticky map: area (Hebrew) → timestamp it was last seen as active.
+   * Persists across refreshes within the same session.
+   */
+  const stickyRef = useRef<Map<string, number>>(new Map());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -46,16 +59,40 @@ export function useAlerts(): UseAlertsReturn {
         setError(null);
       }
 
-      // "ended" severity means the API confirmed the event is over — clear all areas
+      const now = Date.now();
+
       if (json.severity === 'ended') {
+        // Explicit all-clear from Pikud HaOref — wipe everything immediately
+        stickyRef.current.clear();
         setAlertAreas([]);
         setAlertSeverity('none');
+        setAlertTitle(json.title ?? null);
+      } else if (json.data && json.data.length > 0) {
+        // Active siren/alert — stamp each area with current time
+        for (const area of json.data) {
+          stickyRef.current.set(area, now);
+        }
+        setAlertAreas(Array.from(stickyRef.current.keys()));
+        setAlertSeverity(json.severity ?? 'active');
+        setAlertTitle(json.title ?? null);
       } else {
-        setAlertAreas(json.data ?? []);
-        setAlertSeverity(json.severity ?? 'none');
+        // Siren stopped but no explicit "ended" — keep areas sticky.
+        // Only expire areas that have been quiet for > STICKY_MS.
+        for (const [area, ts] of Array.from(stickyRef.current.entries())) {
+          if (now - ts >= STICKY_MS) stickyRef.current.delete(area);
+        }
+
+        if (stickyRef.current.size > 0) {
+          // Still within sticky window — keep showing the alerted areas
+          setAlertAreas(Array.from(stickyRef.current.keys()));
+          // Don't downgrade severity; keep whatever was last active
+        } else {
+          setAlertAreas([]);
+          setAlertSeverity('none');
+          setAlertTitle(null);
+        }
       }
 
-      setAlertTitle(json.title ?? null);
       setLastFetched(new Date());
     } catch (err: unknown) {
       clearTimeout(timer);
