@@ -72,7 +72,10 @@ export async function GET(req: NextRequest) {
 
     let text = (await res.text()).replace(/^\uFEFF/, '').trim();
 
-    if (!text || text === '{}' || text === '[]') {
+    // Pikud HaOref returns empty/near-empty responses when there are no active alerts.
+    // Treat all of these as "no alert" silently — not a real error.
+    const EMPTY_RESPONSES = new Set(['', '{}', '[]', 'null', 'undefined', 'false']);
+    if (EMPTY_RESPONSES.has(text) || text.length < 5) {
       return NextResponse.json({ data: [], severity: 'none', cat: null, title: null } satisfies AlertsPayload);
     }
 
@@ -80,8 +83,18 @@ export async function GET(req: NextRequest) {
     try {
       json = JSON.parse(text);
     } catch {
+      // Non-JSON response (e.g. HTML error page from Pikud HaOref, or whitespace).
+      // If it looks like there's no real content, treat silently as no alert.
+      if (text.startsWith('<') || text.length < 100) {
+        return NextResponse.json({ data: [], severity: 'none', cat: null, title: null } satisfies AlertsPayload);
+      }
       console.error('[/api/alerts] JSON parse error, raw:', text.slice(0, 200));
       return NextResponse.json({ data: [], severity: 'none', cat: null, title: null, parseError: true } satisfies AlertsPayload);
+    }
+
+    // Handle null/non-object JSON (e.g. Pikud HaOref returns bare `null`)
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      return NextResponse.json({ data: [], severity: 'none', cat: null, title: null } satisfies AlertsPayload);
     }
 
     const payload = json as Record<string, unknown>;
