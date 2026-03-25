@@ -81,3 +81,17 @@ export interface MeetingWithSafety {
   attendees: AttendeeWithStatus[];
   summary: SafetySummary;
 }
+
+// ─── Alert History ─────────────────────────────────────────────────────────────
+
+export interface AreaAlertStats {
+  missiles: number;
+  aircraft: number;
+  nightMissiles: number;
+  nightAircraft: number;
+}
+
+/** keyed by Hebrew area name */
+export type AlertHistoryMap = Record<string, AreaAlertStats>;
+
+export type MeetingStatus = 'past' | 'current' | 'next' | 'future';

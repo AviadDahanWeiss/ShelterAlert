@@ -6,7 +6,6 @@ import type { AttendeeMapping } from '@/types';
 
 interface Props {
   mappings: AttendeeMapping[];
-  accessToken: string;
   onUpdate: (m: AttendeeMapping[]) => void;
   onReplace: (m: AttendeeMapping[]) => void;
   onClear: () => void;
@@ -14,7 +13,6 @@ interface Props {
 
 export default function MappingManager({
   mappings,
-  accessToken,
   onUpdate,
   onReplace,
   onClear,
@@ -46,7 +44,7 @@ export default function MappingManager({
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
           From Google Sheets <span className="normal-case font-normal text-gray-400">(replaces existing)</span>
         </p>
-        <SheetConnector accessToken={accessToken} onLoaded={onReplace} />
+        <SheetConnector onLoaded={onReplace} />
       </div>
 
       {/* Current mapping table */}

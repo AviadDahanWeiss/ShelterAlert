@@ -67,11 +67,11 @@ export default function AttendeeQuickEdit({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/40" />
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+        className="relative w-full max-w-sm bg-white shadow-xl border border-gray-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -101,7 +101,7 @@ export default function AttendeeQuickEdit({
           {/* Current status badge */}
           <div className="mt-3">
             <span
-              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+              className={`inline-flex items-center px-2 py-0.5 text-xs font-medium border ${
                 statusColors[attendee.status]
               }`}
             >
@@ -118,7 +118,7 @@ export default function AttendeeQuickEdit({
         {/* Form */}
         <div className="px-5 py-4 space-y-3">
           {isNew && (
-            <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5 text-sm text-blue-700 flex items-start gap-2">
+            <div className="bg-blue-50 border border-blue-100 px-3 py-2.5 text-sm text-blue-700 flex items-start gap-2">
               <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -136,14 +136,14 @@ export default function AttendeeQuickEdit({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Full name"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           {/* Email — read only */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              Email <span className="font-normal text-gray-400">(cannot be changed)</span>
+              Email
             </label>
             <div className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 font-mono truncate">
               {attendee.email}
@@ -153,7 +153,7 @@ export default function AttendeeQuickEdit({
           {/* Area */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              Pikud HaOref area <span className="text-red-400">*</span>
+              Area <span className="text-red-400">*</span>
             </label>
             <input
               ref={areaRef}
@@ -162,14 +162,11 @@ export default function AttendeeQuickEdit({
               onChange={(e) => { setArea(e.target.value); setError(''); }}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               placeholder="e.g. Tel Aviv, Be'er Sheva, Ashkelon"
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
                 error ? 'border-red-300' : 'border-gray-200'
               }`}
             />
             {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-            <p className="text-xs text-gray-400 mt-1">
-              Must match the area name used in Pikud HaOref alerts.
-            </p>
           </div>
         </div>
 
@@ -177,13 +174,13 @@ export default function AttendeeQuickEdit({
         <div className="px-5 pb-5 flex gap-2">
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             {isNew ? 'Add to attendees' : 'Save changes'}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>

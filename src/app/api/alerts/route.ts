@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, getClientIp } from '@/lib/rateLimiter';
 import type { AlertSeverity, AlertsPayload } from '@/types';
 
 const OREF_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
@@ -43,7 +44,11 @@ function classifySeverity(cat: string | null, title: string | null): AlertSeveri
   return 'active';
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!rateLimit(getClientIp(req), 60)) {        // 60 req/min per IP
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
   let controller: AbortController | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
