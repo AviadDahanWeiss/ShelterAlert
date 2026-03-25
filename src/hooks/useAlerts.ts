@@ -110,10 +110,29 @@ export function useAlerts(): UseAlertsReturn {
   }, []);
 
   useEffect(() => {
-    // Fetch once on mount.
-    // Subsequent fetches happen either on demand (refresh button)
-    // or automatically 90 s before each meeting (useMeetingScheduler).
+    // Fetch immediately on mount.
     refresh();
+
+    // Poll every 30 s, but ONLY while the tab is visible.
+    // This is necessary because Pikud HaOref only returns alert data during the
+    // active ~90-second siren window — without polling we'd miss any alarm that
+    // starts after the page loads. 30 s visible-only polling costs ~29k Netlify
+    // invocations/month (8 h/day open), well within the 125k free-tier limit.
+    const tick = () => {
+      if (!document.hidden) refresh();
+    };
+    const interval = setInterval(tick, 30_000);
+
+    // Also re-fetch the moment the user returns to the tab after being away.
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
