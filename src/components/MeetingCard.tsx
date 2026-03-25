@@ -23,7 +23,9 @@ function fmt24(iso: string) {
 
 export default function MeetingCard({ meeting, mappings, onAddOrUpdateMapping, status = 'future' }: Props) {
   const { event, attendees, summary } = meeting;
-  const [expanded, setExpanded] = useState(summary.inShelterCount > 0);
+  const [expanded, setExpanded] = useState(
+    summary.inShelterCount > 0 || status === 'next' || status === 'current'
+  );
   const [quickEditAttendee, setQuickEditAttendee] = useState<AttendeeWithStatus | null>(null);
 
   const start = fmt24(event.start.dateTime);

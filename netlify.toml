@@ -1,0 +1,13 @@
+# ShelterAlert — Netlify configuration
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Run all serverless functions from eu-central-1 (Frankfurt).
+# oref.org.il (Pikud HaOref) is an Israeli government API that geo-blocks
+# requests originating from US-east (Netlify's default region).
+# Frankfurt is the closest available Netlify region to Israel and is not blocked.
+[functions]
+  node_bundler = "esbuild"
+  preferred_region = "eu-central-1"
