@@ -291,7 +291,7 @@ function MeetingsView({
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-white flex items-center justify-between gap-2 sm:gap-4 shrink-0">
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Today&apos;s Meetings</h1>
-          <p className="text-[11px] text-gray-400 leading-snug hidden sm:block">Know if a colleague is missing because they&apos;re under a rocket alert.</p>
+          <p className="tagline-highlight text-[13px] text-gray-600 leading-snug mt-0.5 hidden sm:block">Know if a colleague is missing because they&apos;re under a rocket alert.</p>
           <p className="text-xs sm:text-sm text-gray-400 mt-0.5 truncate">
             {today}
             {tzAbbr && (
