@@ -418,6 +418,11 @@ function MeetingsView({
                 <a href="https://www.oref.org.il" target="_blank" rel="noopener noreferrer" className="underline">oref.org.il</a>.
               </p>
             </div>
+            <div className="mt-2 flex gap-3 justify-center">
+              <a href="/privacy" className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline">Privacy Policy</a>
+              <span className="text-gray-300 text-[11px]">·</span>
+              <a href="/terms" className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline">Terms of Service</a>
+            </div>
           </div>
           {/* Spacer so last card clears the mobile bottom nav */}
           <div className="h-28 sm:h-4" />
