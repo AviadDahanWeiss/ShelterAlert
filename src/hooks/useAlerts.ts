@@ -109,8 +109,16 @@ export function useAlerts(): UseAlertsReturn {
     }
   }, []);
 
+  // Fetch once on mount, then poll every 10 seconds automatically.
+  // This ensures the app catches alerts that start after the page loads.
   useEffect(() => {
     refresh();
+
+    const interval = setInterval(() => {
+      refresh();
+    }, 10_000);
+
+    return () => clearInterval(interval);
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
