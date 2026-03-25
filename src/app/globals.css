@@ -3,12 +3,15 @@
 @tailwind utilities;
 
 /* ── Tagline highlight sweep ─────────────────────────────────────────────────
-   A narrow yellow band (~3 chars wide) slides once from left to right
-   across the tagline text, like a highlighter passing over the words.
+   A soft red gradient band slides once left→right across the tagline.
+   Gradient edges make it feel like a gentle spotlight, not a hard block.
+   Fades in on entry, fades out on exit, for a polished, non-distracting feel.
    ────────────────────────────────────────────────────────────────────────── */
 @keyframes taglineSweep {
-  from { left: -3.5ch; }
-  to   { left: 100%; }
+  0%   { left: -5ch;              opacity: 0; }
+  6%   {                          opacity: 1; }
+  90%  {                          opacity: 1; }
+  100% { left: calc(100% + 1ch); opacity: 0; }
 }
 
 .tagline-highlight {
@@ -20,12 +23,19 @@
 .tagline-highlight::after {
   content: '';
   position: absolute;
-  top: 1px;
-  bottom: 1px;
-  left: -3.5ch;
-  width: 3ch;
-  background: rgba(253, 224, 71, 0.55);
-  border-radius: 2px;
+  top: 0;
+  bottom: 0;
+  left: -5ch;
+  width: 4.5ch;
+  background: linear-gradient(
+    90deg,
+    transparent          0%,
+    rgba(239,68,68,0.12) 20%,
+    rgba(239,68,68,0.28) 50%,
+    rgba(239,68,68,0.12) 80%,
+    transparent          100%
+  );
+  border-radius: 4px;
   pointer-events: none;
-  animation: taglineSweep 2.4s ease-out 0.7s forwards;
+  animation: taglineSweep 4s cubic-bezier(0.4, 0, 0.2, 1) 1s forwards;
 }

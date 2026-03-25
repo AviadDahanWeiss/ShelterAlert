@@ -109,16 +109,29 @@ export function useAlerts(): UseAlertsReturn {
     }
   }, []);
 
-  // Fetch once on mount, then poll every 10 seconds automatically.
-  // This ensures the app catches alerts that start after the page loads.
   useEffect(() => {
+    // Fetch immediately on mount.
     refresh();
 
-    const interval = setInterval(() => {
-      refresh();
-    }, 10_000);
+    // Poll every 30 s, but ONLY while the tab is visible.
+    // When the user switches away the interval still ticks but the guard below
+    // skips the fetch — keeping Netlify function invocations near-zero.
+    const tick = () => {
+      if (!document.hidden) refresh();
+    };
 
-    return () => clearInterval(interval);
+    const interval = setInterval(tick, 30_000);
+
+    // Also re-fetch the moment the user returns to the tab after being away.
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
