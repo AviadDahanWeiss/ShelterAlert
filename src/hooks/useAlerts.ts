@@ -53,9 +53,11 @@ export function useAlerts(): UseAlertsReturn {
 
       if (json.error === 'timeout') {
         setError('Alert service timed out — showing last known status.');
-      } else if (json.error === 'fetch_failed' || json.parseError) {
-        setError('Could not read alert data — showing last known status.');
+      } else if (json.error === 'fetch_failed') {
+        setError('Could not reach alert service — showing last known status.');
       } else {
+        // parseError is treated as "no data" not a user-visible error —
+        // Pikud HaOref returns non-JSON during quiet periods, which is normal.
         setError(null);
       }
 
