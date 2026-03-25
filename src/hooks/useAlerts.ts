@@ -110,28 +110,10 @@ export function useAlerts(): UseAlertsReturn {
   }, []);
 
   useEffect(() => {
-    // Fetch immediately on mount.
+    // Fetch once on mount.
+    // Subsequent fetches happen either on demand (refresh button)
+    // or automatically 90 s before each meeting (useMeetingScheduler).
     refresh();
-
-    // Poll every 30 s, but ONLY while the tab is visible.
-    // When the user switches away the interval still ticks but the guard below
-    // skips the fetch — keeping Netlify function invocations near-zero.
-    const tick = () => {
-      if (!document.hidden) refresh();
-    };
-
-    const interval = setInterval(tick, 30_000);
-
-    // Also re-fetch the moment the user returns to the tab after being away.
-    const onVisible = () => {
-      if (!document.hidden) refresh();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
