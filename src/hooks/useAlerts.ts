@@ -116,17 +116,10 @@ export function useAlerts(): UseAlertsReturn {
 
   useEffect(() => {
     // Fetch once on mount.
-    // Further refreshes happen:
+    // Further refreshes happen only:
     //   • on demand (user clicks "Check Alerts")
     //   • 90 s before each meeting (via useMeetingScheduler → handleScheduledTrigger)
-    //   • when the tab regains focus after being hidden
     refresh();
-
-    const onVisible = () => {
-      if (!document.hidden) refresh();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
