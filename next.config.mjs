@@ -36,8 +36,9 @@ const securityHeaders = [
       "img-src 'self' data: https://lh3.googleusercontent.com",
       // Fonts: same-origin only
       "font-src 'self'",
-      // Fetch/XHR: same-origin only (all external API calls are server-side)
-      "connect-src 'self' https://accounts.google.com",
+      // Fetch/XHR: allow same-origin, Google auth, and the Cloudflare Worker
+      // (browser calls the Worker directly so oref requests originate from TLV PoP)
+      "connect-src 'self' https://accounts.google.com https://*.workers.dev",
       // OAuth popup
       "frame-src https://accounts.google.com",
       // Form submissions (NextAuth redirects)
