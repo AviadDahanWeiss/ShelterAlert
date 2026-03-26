@@ -9,14 +9,16 @@ import { useMeetingScheduler } from '@/hooks/useMeetingScheduler';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import { enrichEventWithSafety } from '@/lib/safety';
 import { toEnglishAreaName } from '@/lib/areaLookup';
-import { getDemoEvents, DEMO_MAPPINGS } from '@/lib/demoData';
+import { DEMO_MAPPINGS } from '@/lib/demoData';
+import { useManualMeetings } from '@/hooks/useManualMeetings';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar, { type View } from '@/components/Sidebar';
 import MeetingCard from '@/components/MeetingCard';
+import AddMeetingModal from '@/components/AddMeetingModal';
 import AttendeeManager from '@/components/AttendeeManager';
 import ShelterAlertToast from '@/components/ShelterAlertToast';
 import type { ShelterAlert } from '@/hooks/useDesktopNotifications';
-import type { AttendeeMapping, MeetingStatus } from '@/types';
+import type { AttendeeMapping, CalendarEvent, MeetingStatus } from '@/types';
 
 function Spinner({ className = 'h-5 w-5 text-gray-400' }: { className?: string }) {
   return (
@@ -66,18 +68,19 @@ function RefreshBtn({
 
 function DemoBanner() {
   return (
-    <div className="bg-blue-600 text-white px-4 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shrink-0">
+    <div className="bg-blue-600 text-white px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
       <div>
-        <p className="font-semibold text-sm">Demo mode</p>
-        <p className="text-blue-200 text-xs leading-relaxed">
-          Sample meetings with fictional attendees. Connect your calendar to see real data.
+        <p className="font-semibold text-sm">You&apos;re in demo mode</p>
+        <p className="text-blue-100 text-xs leading-relaxed mt-0.5">
+          Add meetings and contacts manually — no sign-in needed.
+          Or connect Google Calendar to sync your real schedule automatically.
         </p>
       </div>
       <button
         onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-        className="shrink-0 inline-flex items-center gap-2 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-50 transition-colors w-full sm:w-auto justify-center"
+        className="shrink-0 inline-flex items-center gap-2 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-50 transition-colors w-full sm:w-auto justify-center rounded"
       >
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
           <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -250,6 +253,9 @@ function MeetingsView({
   onAddOrUpdateMapping,
   isDemo,
   meetingStatuses,
+  onAddMeeting,
+  onEditMeeting,
+  onDeleteMeeting,
 }: {
   enrichedEvents: EnrichedEvent[];
   eventsLoading: boolean;
@@ -267,6 +273,9 @@ function MeetingsView({
   onAddOrUpdateMapping: (m: AttendeeMapping) => void;
   isDemo: boolean;
   meetingStatuses: MeetingStatus[];
+  onAddMeeting?: () => void;
+  onEditMeeting?: (event: CalendarEvent) => void;
+  onDeleteMeeting?: (id: string) => void;
 }) {
   const [justChecked, setJustChecked] = useState(false);
   const justCheckedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -302,6 +311,18 @@ function MeetingsView({
           </p>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {isDemo && onAddMeeting && (
+            <button
+              onClick={onAddMeeting}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+              title="Add meeting"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Add meeting</span>
+            </button>
+          )}
           {!isDemo && (
             <RefreshBtn
               label="Refresh Calendar"
@@ -396,6 +417,8 @@ function MeetingsView({
                     mappings={mappings}
                     onAddOrUpdateMapping={onAddOrUpdateMapping}
                     status={meetingStatuses[i] ?? 'future'}
+                    onEdit={isDemo && onEditMeeting ? () => onEditMeeting(m.event) : undefined}
+                    onDelete={isDemo && onDeleteMeeting ? () => onDeleteMeeting(m.event.id) : undefined}
                   />
                 ))}
               </div>
@@ -440,9 +463,10 @@ export default function Dashboard() {
   const isDemo = status === 'unauthenticated';
   const [activeView, setActiveView] = useState<View>('meetings');
   const [toastAlerts, setToastAlerts] = useState<ShelterAlert[]>([]);
+  const [meetingModal, setMeetingModal] = useState<{ open: boolean; editing?: CalendarEvent }>({ open: false });
 
-  // Stable demo events (regenerated only on mount)
-  const demoEvents = useMemo(() => getDemoEvents(), []);
+  // Manual meetings (demo mode only) — stored in localStorage, seeded with demo data on first visit
+  const { meetings: manualMeetings, addMeeting, editMeeting, deleteMeeting } = useManualMeetings();
 
   const { events: realEvents, loading: eventsLoading, error: eventsError, lastFetched: eventsLastFetched, refresh: refreshCalendar } = useCalendarEvents();
   const { alertAreas, alertSeverity, alertTitle, loading: alertLoading, error: alertError, lastFetched: alertLastFetched, refresh: refreshAlerts } = useAlerts();
@@ -450,8 +474,8 @@ export default function Dashboard() {
   const { checkAndNotify, forceNotify } = useDesktopNotifications();
   const pendingForceNotify = useRef(false);
 
-  // In demo mode use demo events; in real mode use real events
-  const events = isDemo ? demoEvents : realEvents;
+  // In demo mode use localStorage-backed manual meetings; in real mode use Google Calendar
+  const events = isDemo ? manualMeetings : realEvents;
 
   // In demo mode: start with DEMO_MAPPINGS but let any localStorage edits override them.
   // This lets unauthenticated users still customise attendee locations.
@@ -563,6 +587,9 @@ export default function Dashboard() {
               onAddOrUpdateMapping={addOrUpdateMapping}
               isDemo={isDemo}
               meetingStatuses={meetingStatuses}
+              onAddMeeting={isDemo ? () => setMeetingModal({ open: true }) : undefined}
+              onEditMeeting={isDemo ? (ev) => setMeetingModal({ open: true, editing: ev }) : undefined}
+              onDeleteMeeting={isDemo ? deleteMeeting : undefined}
             />
           )}
           {activeView === 'attendees' && (
@@ -578,6 +605,15 @@ export default function Dashboard() {
           )}
         </main>
       </div>
+
+      {meetingModal.open && (
+        <AddMeetingModal
+          contacts={effectiveMappings}
+          existingMeeting={meetingModal.editing}
+          onSave={(m) => meetingModal.editing ? editMeeting(meetingModal.editing.id, m) : addMeeting(m)}
+          onClose={() => setMeetingModal({ open: false })}
+        />
+      )}
     </AuthGuard>
   );
 }
