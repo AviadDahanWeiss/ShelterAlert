@@ -11,6 +11,8 @@ interface Props {
   mappings: AttendeeMapping[];
   onAddOrUpdateMapping: (m: AttendeeMapping) => void;
   status?: MeetingStatus;
+  onDelete?: () => void;
+  onEdit?: () => void;
 }
 
 function fmt24(iso: string) {
@@ -21,7 +23,7 @@ function fmt24(iso: string) {
   });
 }
 
-export default function MeetingCard({ meeting, mappings, onAddOrUpdateMapping, status = 'future' }: Props) {
+export default function MeetingCard({ meeting, mappings, onAddOrUpdateMapping, status = 'future', onDelete, onEdit }: Props) {
   const { event, attendees, summary } = meeting;
   const [expanded, setExpanded] = useState(
     summary.inShelterCount > 0 || status === 'next' || status === 'current'
@@ -117,6 +119,28 @@ export default function MeetingCard({ meeting, mappings, onAddOrUpdateMapping, s
 
           <div className="flex items-center gap-1.5 shrink-0">
             {!isPast && <SafetyBadge summary={summary} />}
+            {onEdit && (
+              <button
+                onClick={e => { e.stopPropagation(); onEdit(); }}
+                className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                title="Edit meeting"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(); }}
+                className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                title="Delete meeting"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
             <svg
               className={`h-4 w-4 transition-transform duration-150 ${isPast ? 'text-gray-300' : 'text-gray-400'} ${expanded ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}

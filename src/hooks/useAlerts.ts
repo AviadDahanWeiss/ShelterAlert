@@ -44,7 +44,12 @@ export function useAlerts(): UseAlertsReturn {
     const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
 
     try {
-      const res = await fetch('/api/alerts', { signal: controller.signal });
+      // In production: call the Cloudflare Worker directly from the browser.
+      // The Worker runs at the nearest Cloudflare PoP (Tel Aviv for Israeli users),
+      // so the request to oref.org.il originates from an Israeli IP — not geo-blocked.
+      // In local dev (env var not set): fall back to /api/alerts (works from Israeli dev machine).
+      const alertsUrl = process.env.NEXT_PUBLIC_OREF_PROXY_URL ?? '/api/alerts';
+      const res = await fetch(alertsUrl, { signal: controller.signal });
       clearTimeout(timer);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -110,29 +115,18 @@ export function useAlerts(): UseAlertsReturn {
   }, []);
 
   useEffect(() => {
-    // Fetch immediately on mount.
+    // Fetch once on mount.
+    // Further refreshes happen:
+    //   • on demand (user clicks "Check Alerts")
+    //   • 90 s before each meeting (via useMeetingScheduler → handleScheduledTrigger)
+    //   • when the tab regains focus after being hidden
     refresh();
 
-    // Poll every 30 s, but ONLY while the tab is visible.
-    // This is necessary because Pikud HaOref only returns alert data during the
-    // active ~90-second siren window — without polling we'd miss any alarm that
-    // starts after the page loads. 30 s visible-only polling costs ~29k Netlify
-    // invocations/month (8 h/day open), well within the 125k free-tier limit.
-    const tick = () => {
-      if (!document.hidden) refresh();
-    };
-    const interval = setInterval(tick, 30_000);
-
-    // Also re-fetch the moment the user returns to the tab after being away.
     const onVisible = () => {
       if (!document.hidden) refresh();
     };
     document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refresh]);
 
   return { alertAreas, alertSeverity, alertTitle, loading, error, lastFetched, refresh };
