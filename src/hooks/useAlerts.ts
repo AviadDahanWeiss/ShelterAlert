@@ -44,7 +44,12 @@ export function useAlerts(): UseAlertsReturn {
     const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
 
     try {
-      const res = await fetch('/api/alerts', { signal: controller.signal });
+      // In production: call the Cloudflare Worker directly from the browser.
+      // The Worker runs at the nearest Cloudflare PoP (Tel Aviv for Israeli users),
+      // so the request to oref.org.il originates from an Israeli IP — not geo-blocked.
+      // In local dev (env var not set): fall back to /api/alerts (works from Israeli dev machine).
+      const alertsUrl = process.env.NEXT_PUBLIC_OREF_PROXY_URL ?? '/api/alerts';
+      const res = await fetch(alertsUrl, { signal: controller.signal });
       clearTimeout(timer);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
