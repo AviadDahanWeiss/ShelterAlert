@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rateLimiter';
 import type { AlertSeverity, AlertsPayload } from '@/types';
 
-// Run at the CDN edge so the outbound request to oref.org.il originates from a
-// node geographically close to Israel rather than from Netlify's default US-east
-// server (which is geo-blocked by the Pikud HaOref API).
-export const runtime = 'edge';
-
 const OREF_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
 const TIMEOUT_MS = 8000;
 
