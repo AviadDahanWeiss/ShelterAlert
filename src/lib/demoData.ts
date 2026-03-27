@@ -8,17 +8,19 @@ function todayAt(offsetMinutes: number): string {
   return d.toISOString();
 }
 
+// Area names MUST match cities.json name_en exactly so toHebrewAreaName() can
+// resolve them to the Hebrew strings that Pikud HaOref returns in alerts.
 export const DEMO_MAPPINGS: AttendeeMapping[] = [
-  { name: 'Yael Cohen',    email: 'yael.cohen@demo.local',   area: 'Tel Aviv - Central' },
-  { name: 'Oren Levi',     email: 'oren.levi@demo.local',    area: 'Beer Sheva' },
-  { name: 'Dana Mizrahi',  email: 'dana.mizrahi@demo.local', area: 'Jerusalem' },
-  { name: 'Roni Shapiro',  email: 'roni.shapiro@demo.local', area: 'Haifa - Hacarmel' },
+  { name: 'Yael Cohen',    email: 'yael.cohen@demo.local',   area: 'Tel Aviv - City Center' },
+  { name: 'Oren Levi',     email: 'oren.levi@demo.local',    area: 'Beer Sheva - North' },
+  { name: 'Dana Mizrahi',  email: 'dana.mizrahi@demo.local', area: 'Jerusalem - Center' },
+  { name: 'Roni Shapiro',  email: 'roni.shapiro@demo.local', area: 'Haifa - Carmel, Hadar And Downtown Lower City' },
   { name: 'Tal Katz',      email: 'tal.katz@demo.local',     area: 'Kiryat Shmona' },
   { name: 'Mia Peretz',    email: 'mia.peretz@demo.local',   area: 'Eilat' },
-  { name: 'Avi Goldstein', email: 'avi.goldstein@demo.local',area: 'Ashdod' },
-  { name: 'Noa Friedman',  email: 'noa.friedman@demo.local', area: 'Netanya' },
-  { name: 'Elan Bar',      email: 'elan.bar@demo.local',     area: 'Rishon LeZion' },
-  { name: 'Shai Avraham',  email: 'shai.avraham@demo.local', area: 'Ramat Gan - Bnei Brak' },
+  { name: 'Avi Goldstein', email: 'avi.goldstein@demo.local',area: 'Ashdod - Alef, Bet, Dalet, Heh' },
+  { name: 'Noa Friedman',  email: 'noa.friedman@demo.local', area: 'Netanya - East' },
+  { name: 'Elan Bar',      email: 'elan.bar@demo.local',     area: 'Rishon LeZion - East' },
+  { name: 'Shai Avraham',  email: 'shai.avraham@demo.local', area: 'Ramat Gan - East' },
 ];
 
 export function getDemoEvents(): CalendarEvent[] {
