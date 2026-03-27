@@ -101,6 +101,8 @@ function AlertStatusPanel({
   alertError,
   lastFetched,
   onRefresh,
+  onTestNotification,
+  notificationPermission,
 }: {
   alertAreas: string[];
   alertTitle: string | null;
@@ -108,6 +110,8 @@ function AlertStatusPanel({
   alertError: string | null;
   lastFetched: Date | null;
   onRefresh: () => void;
+  onTestNotification?: () => void;
+  notificationPermission?: NotificationPermission;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copiedArea, setCopiedArea] = useState<string | null>(null);
@@ -171,6 +175,27 @@ function AlertStatusPanel({
               className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-100 transition-colors"
             >
               {expanded ? 'Hide ▲' : `${alertAreas.length} areas ▼`}
+            </button>
+          )}
+          {onTestNotification && (
+            <button
+              onClick={onTestNotification}
+              className={`p-1 rounded transition-colors ${
+                notificationPermission === 'denied'
+                  ? 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              }`}
+              title={
+                notificationPermission === 'granted'
+                  ? 'Test desktop notification'
+                  : notificationPermission === 'denied'
+                  ? 'Notifications blocked — click to re-request'
+                  : 'Enable desktop notifications'
+              }
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
             </button>
           )}
           <button
@@ -256,6 +281,8 @@ function MeetingsView({
   onAddMeeting,
   onEditMeeting,
   onDeleteMeeting,
+  onTestNotification,
+  notificationPermission,
 }: {
   enrichedEvents: EnrichedEvent[];
   eventsLoading: boolean;
@@ -276,6 +303,8 @@ function MeetingsView({
   onAddMeeting?: () => void;
   onEditMeeting?: (event: CalendarEvent) => void;
   onDeleteMeeting?: (id: string) => void;
+  onTestNotification?: () => void;
+  notificationPermission?: NotificationPermission;
 }) {
   const [justChecked, setJustChecked] = useState(false);
   const justCheckedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,6 +402,8 @@ function MeetingsView({
             alertError={alertError}
             lastFetched={alertLastFetched}
             onRefresh={handleRefreshAlerts}
+            onTestNotification={onTestNotification}
+            notificationPermission={notificationPermission}
           />
 
           {inShelterTotal > 0 && (
@@ -471,7 +502,7 @@ export default function Dashboard() {
   const { events: realEvents, loading: eventsLoading, error: eventsError, lastFetched: eventsLastFetched, refresh: refreshCalendar } = useCalendarEvents();
   const { alertAreas, alertSeverity, alertTitle, loading: alertLoading, error: alertError, lastFetched: alertLastFetched, refresh: refreshAlerts } = useAlerts();
   const { mappings, addOrUpdateMapping, mergeMappings, replaceMappings, editMapping, deleteMapping, clearAll } = useLocationMapping();
-  const { checkAndNotify, forceNotify } = useDesktopNotifications();
+  const { checkAndNotify, forceNotify, testNotification, permission: notifPermission } = useDesktopNotifications();
   const pendingForceNotify = useRef(false);
 
   // In demo mode use localStorage-backed manual meetings; in real mode use Google Calendar
@@ -590,6 +621,8 @@ export default function Dashboard() {
               onAddMeeting={isDemo ? () => setMeetingModal({ open: true }) : undefined}
               onEditMeeting={isDemo ? (ev) => setMeetingModal({ open: true, editing: ev }) : undefined}
               onDeleteMeeting={isDemo ? deleteMeeting : undefined}
+              onTestNotification={testNotification}
+              notificationPermission={notifPermission}
             />
           )}
           {activeView === 'attendees' && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface ShelterAlert {
   meetingTitle: string;
@@ -13,10 +13,17 @@ export function useDesktopNotifications() {
   /** Keys of alerts that have already been shown as desktop notifications. */
   const notifiedRef = useRef<Set<string>>(new Set());
 
+  /** Live permission state — updated whenever it changes. */
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof Notification === 'undefined') return 'denied';
+    return Notification.permission;
+  });
+
   // Request permission early so it's likely granted before the first alert.
   useEffect(() => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then((p) => setPermission(p));
     }
   }, []);
 
@@ -27,9 +34,16 @@ export function useDesktopNotifications() {
    */
   const showOne = useCallback(async (alert: ShelterAlert): Promise<boolean> => {
     if (typeof Notification === 'undefined') return false;
-    let permission = Notification.permission;
-    if (permission === 'default') permission = await Notification.requestPermission();
-    if (permission !== 'granted') return false;
+
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      perm = await Notification.requestPermission();
+      setPermission(perm);
+    }
+    if (perm !== 'granted') {
+      setPermission(perm);
+      return false;
+    }
 
     const startTime = new Date(alert.meetingStart).toLocaleTimeString([], {
       hour: '2-digit', minute: '2-digit', hour12: false,
@@ -38,22 +52,25 @@ export function useDesktopNotifications() {
     const areas = alert.shelterAttendees.map((a) => a.area).filter(Boolean).join(', ');
     const key = `${alert.meetingTitle}::${alert.shelterAttendees.map((a) => a.email).join(',')}`;
 
-    // Title is the meeting name (bold in Chrome by default).
-    // Body: who is in shelter, where, and when.
     const bodyLines = [
       `🚨 ${names}`,
       areas ? `📍 ${areas}` : null,
       `🕐 ${startTime} · ${alert.shelterAttendees.length}/${alert.totalAttendees} in shelter`,
     ].filter(Boolean).join('\n');
 
-    new Notification(alert.meetingTitle, {
-      body: bodyLines,
-      icon: '/alert-icon.svg',
-      badge: '/alert-icon.svg',
-      tag: key,
-      requireInteraction: true,
-    });
-    return true;
+    try {
+      new Notification(alert.meetingTitle, {
+        body: bodyLines,
+        icon: '/alert-icon.svg',
+        badge: '/alert-icon.svg',
+        tag: key,
+        requireInteraction: true,
+      });
+      return true;
+    } catch (err) {
+      console.warn('[ShelterAlert] Notification constructor threw:', err);
+      return false;
+    }
   }, []);
 
   /**
@@ -80,11 +97,24 @@ export function useDesktopNotifications() {
   const forceNotify = useCallback(async (alerts: ShelterAlert[]) => {
     for (const alert of alerts) {
       const key = `${alert.meetingTitle}::${alert.shelterAttendees.map((a) => a.email).join(',')}`;
-      // Remove from notifiedRef so it shows again, then re-add after showing
       notifiedRef.current.delete(key);
       const shown = await showOne(alert);
       if (shown) notifiedRef.current.add(key);
     }
+  }, [showOne]);
+
+  /**
+   * Fire a test notification immediately — no active alert or meeting required.
+   * Use this to verify browser permission is working.
+   * Returns true if shown, false if blocked.
+   */
+  const testNotification = useCallback(async (): Promise<boolean> => {
+    return showOne({
+      meetingTitle: '🧪 ShelterAlert Test',
+      meetingStart: new Date().toISOString(),
+      totalAttendees: 3,
+      shelterAttendees: [{ name: 'Tal Katz', email: 'tal.katz@demo.local', area: 'Kiryat Shmona' }],
+    });
   }, [showOne]);
 
   /**
@@ -133,5 +163,5 @@ export function useDesktopNotifications() {
     [notify]
   );
 
-  return { checkAndNotify, forceNotify };
+  return { checkAndNotify, forceNotify, testNotification, permission };
 }
