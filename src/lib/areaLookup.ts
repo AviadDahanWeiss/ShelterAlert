@@ -44,6 +44,21 @@ function getHebrewFuse() {
   return _hebrewFuse;
 }
 
+// Lazy Fuse for fuzzy English → Hebrew matching.
+// Handles partial city names like "Beer Sheva" when cities.json only has
+// sub-areas like "Beer Sheva - North", "Beer Sheva - South", etc.
+let _englishFuse: Fuse<CityEntry> | null = null;
+function getEnglishFuse() {
+  if (!_englishFuse) {
+    _englishFuse = new Fuse(validCities, {
+      keys: ['name_en'],
+      threshold: 0.35,
+      includeScore: true,
+    });
+  }
+  return _englishFuse;
+}
+
 // Hebrew character range
 const HE_RANGE = /[\u05D0-\u05EA]/;
 
@@ -65,6 +80,13 @@ export function toHebrewAreaName(area: string): string {
     if (results[0] && (results[0].score ?? 1) < 0.25) {
       return results[0].item.name;
     }
+  }
+  // Fuzzy English match — handles "Beer Sheva" when cities.json only has
+  // "Beer Sheva - North", "Beer Sheva - South", etc.  The prefix check in
+  // safety.ts isAreaInAlert() will then match all sub-areas of that city.
+  const enResults = getEnglishFuse().search(trimmed);
+  if (enResults[0] && (enResults[0].score ?? 1) < 0.35) {
+    return enResults[0].item.name;
   }
   // Return original — Fuse.js in safety.ts will still attempt a match
   return trimmed;
