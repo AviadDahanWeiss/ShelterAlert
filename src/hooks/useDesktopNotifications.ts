@@ -19,8 +19,12 @@ export function useDesktopNotifications() {
     return Notification.permission;
   });
 
-  // Request permission early so it's likely granted before the first alert.
+  // Register service worker + request permission early.
   useEffect(() => {
+    // Register SW so showNotification() works (more reliable than new Notification())
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {/* non-critical */});
+    }
     if (typeof Notification === 'undefined') return;
     if (Notification.permission === 'default') {
       Notification.requestPermission().then((p) => setPermission(p));
@@ -58,14 +62,31 @@ export function useDesktopNotifications() {
       `🕐 ${startTime} · ${alert.shelterAttendees.length}/${alert.totalAttendees} in shelter`,
     ].filter(Boolean).join('\n');
 
+    const options: NotificationOptions = {
+      body: bodyLines,
+      icon: '/alert-icon.svg',
+      badge: '/alert-icon.svg',
+      tag: key,
+      requireInteraction: true,
+    };
+
+    // Prefer Service Worker showNotification() — shown as a native OS toast on
+    // Windows/macOS regardless of browser notification UI quirks.
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+        if (reg) {
+          await reg.showNotification(alert.meetingTitle, options);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[ShelterAlert] SW notification failed, falling back:', err);
+      }
+    }
+
+    // Fallback: direct Notification API
     try {
-      new Notification(alert.meetingTitle, {
-        body: bodyLines,
-        icon: '/alert-icon.svg',
-        badge: '/alert-icon.svg',
-        tag: key,
-        requireInteraction: true,
-      });
+      new Notification(alert.meetingTitle, options);
       return true;
     } catch (err) {
       console.warn('[ShelterAlert] Notification constructor threw:', err);
