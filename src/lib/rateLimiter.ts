@@ -44,11 +44,24 @@ export function rateLimit(
   return true;
 }
 
-/** Extract the best available client IP from a request. */
+/**
+ * Extract the real client IP in a spoof-resistant way.
+ *
+ * ⚠️  NEVER trust the first entry of x-forwarded-for — it is set by the CLIENT
+ *     and can be freely spoofed to bypass rate limiting (e.g. X-Forwarded-For: 1.2.3.4).
+ *
+ * Priority order:
+ *  1. x-nf-client-connection-ip  — set by Netlify's edge, cannot be forged by clients
+ *  2. x-real-ip                   — set by some reverse proxies (trusted if your infra sets it)
+ *  3. Last entry of x-forwarded-for — appended by the outermost CDN/load-balancer,
+ *                                     more trustworthy than the first entry
+ *  4. 'unknown'                   — local dev fallback; rate-limited as a single bucket
+ */
 export function getClientIp(req: { headers: { get: (k: string) => string | null } }): string {
   return (
-    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-nf-client-connection-ip') ??
     req.headers.get('x-real-ip') ??
+    req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ??
     'unknown'
   );
 }
