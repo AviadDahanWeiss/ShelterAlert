@@ -72,15 +72,20 @@ export function useDesktopNotifications() {
 
     // Prefer Service Worker showNotification() — shown as a native OS toast on
     // Windows/macOS regardless of browser notification UI quirks.
+    // Use navigator.serviceWorker.ready (not getRegistration) so we wait until
+    // the SW is fully active before calling showNotification().
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]);
         if (reg) {
-          await reg.showNotification(alert.meetingTitle, options);
+          await (reg as ServiceWorkerRegistration).showNotification(alert.meetingTitle, options);
           return true;
         }
       } catch (err) {
-        console.warn('[ShelterAlert] SW notification failed, falling back:', err);
+        console.warn('[ShelterAlert] SW showNotification failed, falling back:', err);
       }
     }
 
@@ -130,11 +135,13 @@ export function useDesktopNotifications() {
    * Returns true if shown, false if blocked.
    */
   const testNotification = useCallback(async (): Promise<boolean> => {
+    // Use a unique email each time so the tag is different on every click —
+    // same-tag notifications are silently deduplicated by the browser.
     return showOne({
       meetingTitle: '🧪 ShelterAlert Test',
       meetingStart: new Date().toISOString(),
       totalAttendees: 3,
-      shelterAttendees: [{ name: 'Tal Katz', email: 'tal.katz@demo.local', area: 'Kiryat Shmona' }],
+      shelterAttendees: [{ name: 'Tal Katz', email: `test-${Date.now()}@demo.local`, area: 'Kiryat Shmona' }],
     });
   }, [showOne]);
 
