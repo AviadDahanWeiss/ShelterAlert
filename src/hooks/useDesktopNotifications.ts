@@ -65,8 +65,11 @@ export function useDesktopNotifications() {
     for (const alert of alerts) {
       const key = `${alert.meetingTitle}::${alert.shelterAttendees.map((a) => a.email).join(',')}`;
       if (notifiedRef.current.has(key)) continue;
-      notifiedRef.current.add(key);
-      await showOne(alert);
+      // Only mark as notified AFTER the notification is successfully shown.
+      // If showOne returns false (permission denied / browser blocked), the key
+      // stays out of notifiedRef so it will be retried on the next alert refresh.
+      const shown = await showOne(alert);
+      if (shown) notifiedRef.current.add(key);
     }
   }, [showOne]);
 
