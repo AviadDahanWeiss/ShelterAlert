@@ -116,11 +116,24 @@ export async function GET(req: NextRequest) {
 
   const debug = req.nextUrl.searchParams.get('debug') === '1';
 
-  // Debug endpoint exposes internal API details — require authentication
+  // Debug mode exposes internal API structure — restricted to the admin email only.
+  // Set ADMIN_EMAIL in your Netlify environment variables to your own Google account email.
+  // Any other signed-in user (or unauthenticated request) will receive 401.
   if (debug) {
-    const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (!jwt) {
-      return NextResponse.json({ error: 'Unauthorized — sign in to use debug mode' }, { status: 401 });
+    try {
+      const jwt = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+      const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
+      const userEmail  = (jwt?.email as string | undefined)?.toLowerCase().trim();
+
+      if (!jwt || !userEmail) {
+        return NextResponse.json({ error: 'Unauthorized — sign in to use debug mode' }, { status: 401 });
+      }
+      if (adminEmail && userEmail !== adminEmail) {
+        return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+      }
+    } catch {
+      // getToken() throws when NEXTAUTH_SECRET is not set — treat as unauthorized
+      return NextResponse.json({ error: 'Unauthorized — server misconfiguration' }, { status: 401 });
     }
   }
   const ctrl = new AbortController();
