@@ -37,24 +37,15 @@ export function useDesktopNotifications() {
    * Returns true if the notification was shown.
    */
   const showOne = useCallback(async (alert: ShelterAlert): Promise<boolean> => {
-    console.log('[ShelterAlert] showOne() called');
-
-    if (typeof Notification === 'undefined') {
-      console.warn('[ShelterAlert] Notification API not available');
-      return false;
-    }
+    if (typeof Notification === 'undefined') return false;
 
     let perm = Notification.permission;
-    console.log('[ShelterAlert] permission:', perm);
-
     if (perm === 'default') {
       perm = await Notification.requestPermission();
       setPermission(perm);
-      console.log('[ShelterAlert] permission after request:', perm);
     }
     if (perm !== 'granted') {
       setPermission(perm);
-      console.warn('[ShelterAlert] permission not granted:', perm);
       return false;
     }
 
@@ -85,18 +76,13 @@ export function useDesktopNotifications() {
     // the SW is fully active before calling showNotification().
     if ('serviceWorker' in navigator) {
       try {
-        console.log('[ShelterAlert] waiting for SW ready...');
         const reg = await Promise.race([
           navigator.serviceWorker.ready,
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
         ]);
         if (reg) {
-          console.log('[ShelterAlert] SW ready, calling showNotification()');
           await (reg as ServiceWorkerRegistration).showNotification(alert.meetingTitle, options);
-          console.log('[ShelterAlert] SW showNotification() resolved — notification sent');
           return true;
-        } else {
-          console.warn('[ShelterAlert] SW not ready after 3s, falling back to Notification API');
         }
       } catch (err) {
         console.warn('[ShelterAlert] SW showNotification failed, falling back:', err);
@@ -105,9 +91,7 @@ export function useDesktopNotifications() {
 
     // Fallback: direct Notification API
     try {
-      console.log('[ShelterAlert] using direct Notification API');
       new Notification(alert.meetingTitle, options);
-      console.log('[ShelterAlert] Notification() created successfully');
       return true;
     } catch (err) {
       console.warn('[ShelterAlert] Notification constructor threw:', err);
