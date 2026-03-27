@@ -38,7 +38,10 @@ const securityHeaders = [
       "font-src 'self'",
       // Fetch/XHR: allow same-origin, Google auth, and the Cloudflare Worker
       // (browser calls the Worker directly so oref requests originate from TLV PoP)
-      "connect-src 'self' https://accounts.google.com https://*.workers.dev",
+      // *.aviadb7.workers.dev covers all current and future Workers under this CF account.
+      // Note: *.workers.dev only matches ONE subdomain level; Cloudflare Worker URLs have
+      // the form {name}.{account}.workers.dev (two levels), so the broader wildcard fails.
+      "connect-src 'self' https://accounts.google.com https://*.aviadb7.workers.dev",
       // OAuth popup
       "frame-src https://accounts.google.com",
       // Form submissions (NextAuth redirects)
